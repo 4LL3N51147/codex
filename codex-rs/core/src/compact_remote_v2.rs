@@ -348,8 +348,8 @@ struct RemoteCompactionV2Output {
 }
 
 async fn run_remote_compaction_request_v2(
-    sess: &Session,
-    turn_context: &TurnContext,
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
     client_session: &mut ModelClientSession,
     prompt: &Prompt,
     responses_metadata: &CodexResponsesMetadata,

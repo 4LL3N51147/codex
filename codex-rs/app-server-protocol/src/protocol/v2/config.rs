@@ -498,6 +498,9 @@ pub struct ManagedHooksRequirements {
     #[serde(rename = "SubagentStop")]
     #[ts(rename = "SubagentStop")]
     pub subagent_stop: Vec<ConfiguredHookMatcherGroup>,
+    #[serde(rename = "TransportError")]
+    #[ts(rename = "TransportError")]
+    pub transport_error: Vec<ConfiguredHookMatcherGroup>,
     #[serde(rename = "Stop")]
     #[ts(rename = "Stop")]
     pub stop: Vec<ConfiguredHookMatcherGroup>,

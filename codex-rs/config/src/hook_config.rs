@@ -54,6 +54,8 @@ pub struct HookEventsToml {
     pub subagent_start: Vec<MatcherGroup>,
     #[serde(rename = "SubagentStop", default)]
     pub subagent_stop: Vec<MatcherGroup>,
+    #[serde(rename = "TransportError", default)]
+    pub transport_error: Vec<MatcherGroup>,
     #[serde(rename = "Stop", default)]
     pub stop: Vec<MatcherGroup>,
 }
@@ -71,6 +73,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
         } = self;
         pre_tool_use.is_empty()
@@ -83,6 +86,7 @@ impl HookEventsToml {
             && user_prompt_submit.is_empty()
             && subagent_start.is_empty()
             && subagent_stop.is_empty()
+            && transport_error.is_empty()
             && stop.is_empty()
     }
 
@@ -98,6 +102,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
         } = self;
         [
@@ -111,6 +116,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
         ]
         .into_iter()
@@ -119,7 +125,7 @@ impl HookEventsToml {
         .sum()
     }
 
-    pub fn into_matcher_groups(self) -> [(HookEventName, Vec<MatcherGroup>); 11] {
+    pub fn into_matcher_groups(self) -> [(HookEventName, Vec<MatcherGroup>); 12] {
         [
             (HookEventName::PreToolUse, self.pre_tool_use),
             (HookEventName::PermissionRequest, self.permission_request),
@@ -131,6 +137,7 @@ impl HookEventsToml {
             (HookEventName::UserPromptSubmit, self.user_prompt_submit),
             (HookEventName::SubagentStart, self.subagent_start),
             (HookEventName::SubagentStop, self.subagent_stop),
+            (HookEventName::TransportError, self.transport_error),
             (HookEventName::Stop, self.stop),
         ]
     }

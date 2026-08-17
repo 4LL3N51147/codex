@@ -17,6 +17,9 @@ use codex_hooks::StartHookTarget;
 use codex_hooks::StopHookTarget;
 use codex_hooks::StopOutcome;
 use codex_hooks::SubagentHookContext;
+use codex_hooks::TransportErrorOutcome;
+use codex_hooks::TransportErrorPhase;
+use codex_hooks::TransportErrorRequest;
 use codex_hooks::UserPromptSubmitOutcome;
 use codex_hooks::UserPromptSubmitRequest;
 use codex_otel::HOOK_RUN_DURATION_METRIC;
@@ -294,6 +297,56 @@ pub(crate) async fn run_post_tool_use_hooks(
     emit_hook_started_events(sess, turn_context, preview_runs).await;
 
     let outcome = hooks.run_post_tool_use(request).await;
+    emit_hook_completed_events(sess, turn_context, outcome.hook_events.clone()).await;
+    outcome
+}
+
+pub(crate) struct TransportErrorHookPayload {
+    pub transport: &'static str,
+    pub phase: TransportErrorPhase,
+    pub message: String,
+    pub retry_count: u64,
+    pub max_retries: u64,
+    pub http_status_code: Option<u16>,
+    pub details: String,
+}
+
+pub(crate) async fn run_transport_error_hooks(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+    payload: TransportErrorHookPayload,
+) -> TransportErrorOutcome {
+    const MAX_DETAILS_CHARS: usize = 4096;
+
+    let mut details = payload.details;
+    if details.chars().count() > MAX_DETAILS_CHARS {
+        details = format!(
+            "{}...",
+            details.chars().take(MAX_DETAILS_CHARS).collect::<String>()
+        );
+    }
+
+    let request = TransportErrorRequest {
+        session_id: sess.session_id().into(),
+        turn_id: turn_context.sub_id.clone(),
+        subagent: thread_spawn_subagent_hook_context(sess, turn_context),
+        #[allow(deprecated)]
+        cwd: turn_context.cwd.clone(),
+        transcript_path: sess.hook_transcript_path().await,
+        model: turn_context.model_info.slug.clone(),
+        permission_mode: hook_permission_mode(turn_context),
+        transport: payload.transport.to_string(),
+        phase: payload.phase,
+        message: payload.message,
+        retry_count: payload.retry_count,
+        max_retries: payload.max_retries,
+        http_status_code: payload.http_status_code,
+        details,
+    };
+    let hooks = sess.hooks();
+    emit_hook_started_events(sess, turn_context, hooks.preview_transport_error(&request)).await;
+
+    let outcome = hooks.run_transport_error(request).await;
     emit_hook_completed_events(sess, turn_context, outcome.hook_events.clone()).await;
     outcome
 }
@@ -795,6 +848,7 @@ fn hook_run_metric_tags(run: &HookRunSummary) -> [(&'static str, &'static str); 
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
     };
     let hook_source = match run.source {

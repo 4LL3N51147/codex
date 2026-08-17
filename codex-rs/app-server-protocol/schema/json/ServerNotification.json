@@ -2084,6 +2084,7 @@
         "userPromptSubmit",
         "subagentStart",
         "subagentStop",
+        "transportError",
         "stop"
       ],
       "type": "string"

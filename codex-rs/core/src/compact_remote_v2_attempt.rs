@@ -103,7 +103,7 @@ pub(super) async fn run_remote_compact_v2_attempt(
     };
     let compaction_output_result = run_remote_compaction_request_v2(
         sess,
-        turn_context.as_ref(),
+        turn_context,
         client_session,
         &prompt,
         &responses_metadata,

@@ -16,7 +16,7 @@ pub use declarations::plugin_hook_declarations;
 pub use engine::HookListEntry;
 pub use events::common::SubagentHookContext;
 /// Hook event names as they appear in hooks JSON and config files.
-pub const HOOK_EVENT_NAMES: [&str; 11] = [
+pub const HOOK_EVENT_NAMES: [&str; 12] = [
     "PreToolUse",
     "PermissionRequest",
     "PostToolUse",
@@ -27,6 +27,7 @@ pub const HOOK_EVENT_NAMES: [&str; 11] = [
     "UserPromptSubmit",
     "SubagentStart",
     "SubagentStop",
+    "TransportError",
     "Stop",
 ];
 
@@ -67,6 +68,9 @@ pub use events::session_start::StartHookTarget;
 pub use events::stop::StopHookTarget;
 pub use events::stop::StopOutcome;
 pub use events::stop::StopRequest;
+pub use events::transport_error::TransportErrorOutcome;
+pub use events::transport_error::TransportErrorPhase;
+pub use events::transport_error::TransportErrorRequest;
 pub use events::user_prompt_submit::UserPromptSubmitOutcome;
 pub use events::user_prompt_submit::UserPromptSubmitRequest;
 pub use legacy_notify::legacy_notify_json;
@@ -97,6 +101,7 @@ pub fn hook_event_key_label(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "user_prompt_submit",
         HookEventName::SubagentStart => "subagent_start",
         HookEventName::SubagentStop => "subagent_stop",
+        HookEventName::TransportError => "transport_error",
         HookEventName::Stop => "stop",
     }
 }

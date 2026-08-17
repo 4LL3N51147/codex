@@ -63,7 +63,9 @@ pub(crate) fn select_handlers_for_matcher_inputs(
                         .any(|input| matches_matcher(handler.matcher.as_deref(), Some(input)))
                 }
             }
-            HookEventName::UserPromptSubmit | HookEventName::Stop => true,
+            HookEventName::UserPromptSubmit
+            | HookEventName::TransportError
+            | HookEventName::Stop => true,
         })
         .cloned()
         .collect()
@@ -174,6 +176,7 @@ pub(crate) fn scope_for_event(event_name: HookEventName) -> HookScope {
         | HookEventName::PreCompact
         | HookEventName::PostCompact
         | HookEventName::UserPromptSubmit
+        | HookEventName::TransportError
         | HookEventName::SubagentStop
         | HookEventName::Stop => HookScope::Turn,
     }
@@ -191,6 +194,7 @@ pub(crate) fn hook_event_name_label(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
     }
 }

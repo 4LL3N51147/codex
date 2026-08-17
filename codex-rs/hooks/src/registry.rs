@@ -18,6 +18,8 @@ use crate::events::session_start::SessionStartOutcome;
 use crate::events::session_start::SessionStartRequest;
 use crate::events::stop::StopOutcome;
 use crate::events::stop::StopRequest;
+use crate::events::transport_error::TransportErrorOutcome;
+use crate::events::transport_error::TransportErrorRequest;
 use crate::events::user_prompt_submit::UserPromptSubmitOutcome;
 use crate::events::user_prompt_submit::UserPromptSubmitRequest;
 use crate::types::Hook;
@@ -253,6 +255,20 @@ impl Hooks {
 
     pub async fn run_session_end(&self, request: SessionEndRequest) -> SessionEndOutcome {
         self.engine.run_session_end(request).await
+    }
+
+    pub fn preview_transport_error(
+        &self,
+        request: &TransportErrorRequest,
+    ) -> Vec<codex_protocol::protocol::HookRunSummary> {
+        self.engine.preview_transport_error(request)
+    }
+
+    pub async fn run_transport_error(
+        &self,
+        request: TransportErrorRequest,
+    ) -> TransportErrorOutcome {
+        self.engine.run_transport_error(request).await
     }
 }
 

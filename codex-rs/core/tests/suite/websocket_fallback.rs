@@ -1,5 +1,10 @@
+use std::fs;
+use std::path::Path;
+
+use anyhow::Context;
 use anyhow::Result;
 use codex_core::TurnInputRequest;
+use codex_features::Feature;
 use codex_model_provider_info::WireApi;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
@@ -7,9 +12,11 @@ use codex_protocol::config_types::Settings;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EventMsg;
+use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ThreadSettingsOverrides;
 use codex_protocol::user_input::UserInput;
 use core_test_support::TempDirExt;
+use core_test_support::hooks::trust_discovered_hooks;
 use core_test_support::responses;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
@@ -122,6 +129,64 @@ async fn websocket_fallback_switches_to_http_after_retries_exhausted() -> Result
     // after which fallback activates and the request is replayed over HTTP.
     assert_eq!(websocket_attempts, 4);
     assert_eq!(http_attempts, 1);
+    assert_eq!(response_mock.requests().len(), 1);
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn websocket_fallback_runs_transport_error_hooks() -> Result<()> {
+    skip_if_no_network!(Ok(()));
+
+    let server = responses::start_mock_server().await;
+    let response_mock = mount_sse_once(
+        &server,
+        sse(vec![ev_response_created("resp-1"), ev_completed("resp-1")]),
+    )
+    .await;
+
+    let mut builder = test_codex()
+        .with_pre_build_hook(write_transport_error_hook)
+        .with_config({
+            let base_url = format!("{}/v1", server.uri());
+            move |config| {
+                config.model_provider.base_url = Some(base_url);
+                config.model_provider.wire_api = WireApi::Responses;
+                config.model_provider.supports_websockets = true;
+                config.model_provider.stream_max_retries = Some(2);
+                config.model_provider.request_max_retries = Some(0);
+                config
+                    .features
+                    .enable(Feature::CodexHooks)
+                    .expect("test config should allow feature update");
+                trust_discovered_hooks(config);
+            }
+        });
+    let test = builder.build(&server).await?;
+
+    test.submit_turn("hello").await?;
+
+    let hook_inputs = read_transport_error_hook_inputs(test.codex_home_path())?;
+    let phases = hook_inputs
+        .iter()
+        .map(|input| input["phase"].as_str().expect("phase should be a string"))
+        .collect::<Vec<_>>();
+    assert_eq!(phases, vec!["retry", "retry", "fallbackToHttp"]);
+
+    for input in &hook_inputs {
+        assert_eq!(input["hook_event_name"], "TransportError");
+        assert_eq!(input["transport"], "responses_websocket");
+        assert_eq!(input["max_retries"], 2);
+    }
+    assert_eq!(hook_inputs[0]["retry_count"], 1);
+    assert_eq!(hook_inputs[0]["message"], "Reconnecting... 1/2");
+    assert_eq!(hook_inputs[1]["retry_count"], 2);
+    assert_eq!(hook_inputs[1]["message"], "Reconnecting... 2/2");
+    assert_eq!(hook_inputs[2]["retry_count"], 2);
+    assert_eq!(
+        hook_inputs[2]["message"],
+        "Falling back from WebSockets to HTTPS transport"
+    );
     assert_eq!(response_mock.requests().len(), 1);
 
     Ok(())
@@ -254,4 +319,43 @@ async fn websocket_fallback_is_sticky_across_turns() -> Result<()> {
     assert_eq!(response_mock.requests().len(), 2);
 
     Ok(())
+}
+
+fn write_transport_error_hook(home: &Path) {
+    let script_path = home.join("transport_error_hook.py");
+    let log_path = home.join("transport_error_hook_log.jsonl");
+    let script = format!(
+        r#"import json
+from pathlib import Path
+import sys
+
+log_path = Path(r"{log_path}")
+payload = json.load(sys.stdin)
+
+with log_path.open("a", encoding="utf-8") as handle:
+    handle.write(json.dumps(payload) + "\n")
+"#,
+        log_path = log_path.display(),
+    );
+    let hooks = serde_json::json!({
+        "hooks": {
+            "TransportError": [{
+                "hooks": [{
+                    "type": "command",
+                    "command": format!("python3 {}", script_path.display()),
+                }]
+            }]
+        }
+    });
+
+    fs::write(&script_path, script).expect("write transport error hook script");
+    fs::write(home.join("hooks.json"), hooks.to_string()).expect("write hooks.json");
+}
+
+fn read_transport_error_hook_inputs(home: &Path) -> Result<Vec<serde_json::Value>> {
+    let text = fs::read_to_string(home.join("transport_error_hook_log.jsonl"))
+        .context("read transport error hook log")?;
+    text.lines()
+        .map(|line| serde_json::from_str(line).context("parse transport error hook input"))
+        .collect()
 }
