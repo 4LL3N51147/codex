@@ -33,6 +33,13 @@ across account switches. Resume and revert preserve that distinction; forks are 
 Scoped requests skip candidates whose rollout header cannot be read. API-key
 logins see all local history. Direct access by thread ID remains available.
 
+# Transport error hooks
+
+Hook event names exposed by `hooks/list` and hook lifecycle notifications include
+`TransportError`. It runs when a Responses request retries, falls back from
+WebSockets to HTTPS, or exhausts its retry budget. The hook input includes the
+transport, phase, retry counts, optional HTTP status, and bounded error details.
+
 # Thread list exclusions
 
 `thread/list` accepts `excludedThreadIds`, an optional array of up to 100

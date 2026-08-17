@@ -2695,6 +2695,13 @@
           },
           "type": "array"
         },
+        "TransportError": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/MatcherGroup"
+          },
+          "type": "array"
+        },
         "UserPromptSubmit": {
           "default": [],
           "items": {

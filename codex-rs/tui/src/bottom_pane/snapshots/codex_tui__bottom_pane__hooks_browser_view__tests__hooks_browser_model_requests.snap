@@ -8,10 +8,10 @@ expression: "render_lines(&view, 112)"
                                                                                                                 
   Event                 Installed   Active      Description                                                     
 ↑                                                                                                               
-  SessionEnd            0           0           Right before a session ends                                     
   UserPromptSubmit      0           0           When the user submits a prompt                                  
   SubagentStart         0           0           When a subagent is created                                      
   SubagentStop          0           0           Right before a subagent ends its turn                           
+  TransportError        0           0           When model transport retries or falls back                      
   Stop                  0           0           Right before Codex ends its turn                                
   Interrupt             0           0           Right before an interrupted turn is aborted                     
   PreModelRequest       0           0           Before a model request                                          

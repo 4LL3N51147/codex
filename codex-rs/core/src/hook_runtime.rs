@@ -22,6 +22,9 @@ use codex_hooks::StartHookTarget;
 use codex_hooks::StopHookTarget;
 use codex_hooks::StopOutcome;
 use codex_hooks::SubagentHookContext;
+use codex_hooks::TransportErrorOutcome;
+use codex_hooks::TransportErrorPhase;
+use codex_hooks::TransportErrorRequest;
 use codex_hooks::UserPromptSubmitOutcome;
 use codex_hooks::UserPromptSubmitRequest;
 use codex_hooks::hook_execution_mode_label;
@@ -369,6 +372,56 @@ fn build_request_metadata(
             )])
         })
         .unwrap_or_default()
+}
+
+pub(crate) struct TransportErrorHookPayload {
+    pub transport: &'static str,
+    pub phase: TransportErrorPhase,
+    pub message: String,
+    pub retry_count: u64,
+    pub max_retries: u64,
+    pub http_status_code: Option<u16>,
+    pub details: String,
+}
+
+pub(crate) async fn run_transport_error_hooks(
+    sess: &Session,
+    turn_context: &TurnContext,
+    payload: TransportErrorHookPayload,
+) -> TransportErrorOutcome {
+    const MAX_DETAILS_CHARS: usize = 4096;
+
+    let mut details = payload.details;
+    if details.chars().count() > MAX_DETAILS_CHARS {
+        details = format!(
+            "{}...",
+            details.chars().take(MAX_DETAILS_CHARS).collect::<String>()
+        );
+    }
+
+    let request = TransportErrorRequest {
+        session_id: sess.session_id().into(),
+        turn_id: turn_context.sub_id.clone(),
+        subagent: thread_spawn_subagent_hook_context(sess, turn_context),
+        #[allow(deprecated)]
+        cwd: turn_context.cwd.clone(),
+        transcript_path: sess.hook_transcript_path().await,
+        model: turn_context.model_info().slug.clone(),
+        permission_mode: hook_permission_mode(turn_context.approval_policy()),
+        transport: payload.transport.to_string(),
+        phase: payload.phase,
+        message: payload.message,
+        retry_count: payload.retry_count,
+        max_retries: payload.max_retries,
+        http_status_code: payload.http_status_code,
+        details,
+    };
+    let hooks = sess.hooks();
+    emit_hook_started_events(sess, turn_context, hooks.preview_transport_error(&request)).await;
+
+    let outcome = hooks.run_transport_error(request).await;
+    emit_hook_completed_events(sess, turn_context, outcome.hook_events.clone()).await;
+    outcome
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -919,8 +972,8 @@ fn should_emit_hook_notification(run: &HookRunSummary) -> bool {
 }
 
 async fn emit_hook_started_events(
-    sess: &Arc<Session>,
-    turn_context: &Arc<TurnContext>,
+    sess: &Session,
+    turn_context: &TurnContext,
     preview_runs: Vec<HookRunSummary>,
 ) {
     for run in preview_runs
@@ -939,8 +992,8 @@ async fn emit_hook_started_events(
 }
 
 pub(crate) async fn emit_hook_completed_events(
-    sess: &Arc<Session>,
-    turn_context: &Arc<TurnContext>,
+    sess: &Session,
+    turn_context: &TurnContext,
     completed_events: Vec<HookCompletedEvent>,
 ) {
     if turn_context.config.memories.disable_on_external_context
@@ -987,8 +1040,8 @@ fn emit_hook_completed_metrics(turn_context: &TurnContext, completed: &HookCompl
 }
 
 fn track_hook_completed_analytics(
-    sess: &Arc<Session>,
-    turn_context: &Arc<TurnContext>,
+    sess: &Session,
+    turn_context: &TurnContext,
     completed: &HookCompletedEvent,
 ) {
     let (tracking, hook) =
@@ -1038,6 +1091,7 @@ fn hook_run_metric_tags(run: &HookRunSummary) -> [(&'static str, &'static str); 
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
         HookEventName::Interrupt => "Interrupt",
     };
@@ -1084,7 +1138,7 @@ fn hook_permission_mode(approval_policy: AskForApproval) -> String {
 }
 
 fn thread_spawn_subagent_hook_context(
-    sess: &Arc<Session>,
+    sess: &Session,
     turn_context: &TurnContext,
 ) -> Option<SubagentHookContext> {
     match &turn_context.session_source {
@@ -1095,7 +1149,7 @@ fn thread_spawn_subagent_hook_context(
     }
 }
 
-fn subagent_hook_context(sess: &Arc<Session>, agent_role: &Option<String>) -> SubagentHookContext {
+fn subagent_hook_context(sess: &Session, agent_role: &Option<String>) -> SubagentHookContext {
     SubagentHookContext {
         agent_id: sess.thread_id().to_string(),
         agent_type: agent_role

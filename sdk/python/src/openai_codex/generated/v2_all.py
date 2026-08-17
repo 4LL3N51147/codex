@@ -2050,6 +2050,7 @@ class HookEventName(Enum):
     user_prompt_submit = "userPromptSubmit"
     subagent_start = "subagentStart"
     subagent_stop = "subagentStop"
+    transport_error = "transportError"
     stop = "stop"
     interrupt = "interrupt"
 
@@ -2501,6 +2502,7 @@ class ManagedHooksRequirements(BaseModel):
     stop: Annotated[list[ConfiguredHookMatcherGroup], Field(alias="Stop")]
     subagent_start: Annotated[list[ConfiguredHookMatcherGroup], Field(alias="SubagentStart")]
     subagent_stop: Annotated[list[ConfiguredHookMatcherGroup], Field(alias="SubagentStop")]
+    transport_error: Annotated[list[ConfiguredHookMatcherGroup], Field(alias="TransportError")]
     user_prompt_submit: Annotated[list[ConfiguredHookMatcherGroup], Field(alias="UserPromptSubmit")]
     managed_dir: Annotated[str | None, Field(alias="managedDir")] = None
     windows_managed_dir: Annotated[str | None, Field(alias="windowsManagedDir")] = None

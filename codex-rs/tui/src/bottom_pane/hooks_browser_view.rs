@@ -683,6 +683,7 @@ fn event_label(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
         HookEventName::Interrupt => "Interrupt",
     }
@@ -702,6 +703,7 @@ fn event_description(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "When the user submits a prompt",
         HookEventName::SubagentStart => "When a subagent is created",
         HookEventName::SubagentStop => "Right before a subagent ends its turn",
+        HookEventName::TransportError => "When model transport retries or falls back",
         HookEventName::Stop => "Right before Codex ends its turn",
         HookEventName::Interrupt => "Right before an interrupted turn is aborted",
     }

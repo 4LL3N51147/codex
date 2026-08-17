@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "NullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "properties": {
+    "agent_id": {
+      "type": "string"
+    },
+    "agent_type": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "details": {
+      "type": "string"
+    },
+    "hook_event_name": {
+      "const": "TransportError",
+      "type": "string"
+    },
+    "http_status_code": {
+      "format": "uint16",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "max_retries": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "message": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "permission_mode": {
+      "enum": [
+        "default",
+        "acceptEdits",
+        "plan",
+        "dontAsk",
+        "bypassPermissions"
+      ],
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "retry",
+        "fallbackToHttp",
+        "exhausted"
+      ],
+      "type": "string"
+    },
+    "retry_count": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "transcript_path": {
+      "$ref": "#/definitions/NullableString"
+    },
+    "transport": {
+      "enum": [
+        "responses_websocket",
+        "responses_https"
+      ],
+      "type": "string"
+    },
+    "turn_id": {
+      "description": "Codex extension: expose the active turn id to internal turn-scoped hooks.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cwd",
+    "details",
+    "hook_event_name",
+    "max_retries",
+    "message",
+    "model",
+    "permission_mode",
+    "phase",
+    "retry_count",
+    "session_id",
+    "transcript_path",
+    "transport",
+    "turn_id"
+  ],
+  "title": "transport-error.command.input",
+  "type": "object"
+}

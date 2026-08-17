@@ -21,6 +21,8 @@ use crate::events::session_start::SessionStartOutcome;
 use crate::events::session_start::SessionStartRequest;
 use crate::events::stop::StopOutcome;
 use crate::events::stop::StopRequest;
+use crate::events::transport_error::TransportErrorOutcome;
+use crate::events::transport_error::TransportErrorRequest;
 use crate::events::user_prompt_submit::UserPromptSubmitOutcome;
 use crate::events::user_prompt_submit::UserPromptSubmitRequest;
 use crate::mcp::HookMcpExecutor;
@@ -353,6 +355,20 @@ impl Hooks {
 
     pub async fn run_interrupt(&self, request: InterruptRequest) -> InterruptOutcome {
         self.engine.run_interrupt(request).await
+    }
+
+    pub fn preview_transport_error(
+        &self,
+        request: &TransportErrorRequest,
+    ) -> Vec<codex_protocol::protocol::HookRunSummary> {
+        self.engine.preview_transport_error(request)
+    }
+
+    pub async fn run_transport_error(
+        &self,
+        request: TransportErrorRequest,
+    ) -> TransportErrorOutcome {
+        self.engine.run_transport_error(request).await
     }
 
     /// None if unconfigured; Sync if any handler must finish before continuing.

@@ -122,6 +122,7 @@
         "userPromptSubmit",
         "subagentStart",
         "subagentStop",
+        "transportError",
         "stop",
         "interrupt"
       ],

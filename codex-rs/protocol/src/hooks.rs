@@ -31,6 +31,8 @@ pub struct HookEventsToml {
     pub subagent_start: Vec<MatcherGroup>,
     #[serde(rename = "SubagentStop", default)]
     pub subagent_stop: Vec<MatcherGroup>,
+    #[serde(rename = "TransportError", default)]
+    pub transport_error: Vec<MatcherGroup>,
     #[serde(rename = "Stop", default)]
     pub stop: Vec<MatcherGroup>,
     #[serde(rename = "Interrupt", default)]
@@ -52,6 +54,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
             interrupt,
         } = self;
@@ -67,6 +70,7 @@ impl HookEventsToml {
             && user_prompt_submit.is_empty()
             && subagent_start.is_empty()
             && subagent_stop.is_empty()
+            && transport_error.is_empty()
             && stop.is_empty()
             && interrupt.is_empty()
     }
@@ -85,6 +89,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
             interrupt,
         } = self;
@@ -101,6 +106,7 @@ impl HookEventsToml {
             user_prompt_submit,
             subagent_start,
             subagent_stop,
+            transport_error,
             stop,
             interrupt,
         ]
@@ -110,12 +116,12 @@ impl HookEventsToml {
         .sum()
     }
 
-    pub fn into_matcher_groups(mut self) -> [(HookEventName, Vec<MatcherGroup>); 14] {
+    pub fn into_matcher_groups(mut self) -> [(HookEventName, Vec<MatcherGroup>); 15] {
         self.matcher_groups_mut()
             .map(|(event, groups)| (event, std::mem::take(groups)))
     }
 
-    pub fn matcher_groups_mut(&mut self) -> [(HookEventName, &mut Vec<MatcherGroup>); 14] {
+    pub fn matcher_groups_mut(&mut self) -> [(HookEventName, &mut Vec<MatcherGroup>); 15] {
         use HookEventName as Event;
 
         [
@@ -131,6 +137,7 @@ impl HookEventsToml {
             (Event::UserPromptSubmit, &mut self.user_prompt_submit),
             (Event::SubagentStart, &mut self.subagent_start),
             (Event::SubagentStop, &mut self.subagent_stop),
+            (Event::TransportError, &mut self.transport_error),
             (Event::Stop, &mut self.stop),
             (Event::Interrupt, &mut self.interrupt),
         ]

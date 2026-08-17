@@ -1553,6 +1553,7 @@ fn analytics_hook_event_name(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
         HookEventName::Interrupt => "Interrupt",
     }

@@ -1816,6 +1816,7 @@ pub enum HookEventName {
     UserPromptSubmit,
     SubagentStart,
     SubagentStop,
+    TransportError,
     Stop,
     Interrupt,
     PreModelRequest,

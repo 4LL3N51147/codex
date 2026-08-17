@@ -35,6 +35,8 @@ const SUBAGENT_START_INPUT_FIXTURE: &str = "subagent-start.command.input.schema.
 const SUBAGENT_START_OUTPUT_FIXTURE: &str = "subagent-start.command.output.schema.json";
 const SUBAGENT_STOP_INPUT_FIXTURE: &str = "subagent-stop.command.input.schema.json";
 const SUBAGENT_STOP_OUTPUT_FIXTURE: &str = "subagent-stop.command.output.schema.json";
+const TRANSPORT_ERROR_INPUT_FIXTURE: &str = "transport-error.command.input.schema.json";
+const TRANSPORT_ERROR_OUTPUT_FIXTURE: &str = "transport-error.command.output.schema.json";
 const STOP_INPUT_FIXTURE: &str = "stop.command.input.schema.json";
 const STOP_OUTPUT_FIXTURE: &str = "stop.command.output.schema.json";
 const INTERRUPT_INPUT_FIXTURE: &str = "interrupt.command.input.schema.json";
@@ -119,6 +121,8 @@ pub(crate) enum HookEventNameWire {
     SubagentStart,
     #[serde(rename = "SubagentStop")]
     SubagentStop,
+    #[serde(rename = "TransportError")]
+    TransportError,
     #[serde(rename = "Stop")]
     Stop,
     #[serde(rename = "Interrupt")]
@@ -180,6 +184,15 @@ pub(crate) struct PreCompactCommandOutputWire {
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "post-compact.command.output")]
 pub(crate) struct PostCompactCommandOutputWire {
+    #[serde(flatten)]
+    pub universal: HookUniversalOutputWire,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "transport-error.command.output")]
+pub(crate) struct TransportErrorCommandOutputWire {
     #[serde(flatten)]
     pub universal: HookUniversalOutputWire,
 }
@@ -638,6 +651,35 @@ pub(crate) struct InterruptCommandInput {
     pub permission_mode: String,
 }
 
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "transport-error.command.input")]
+pub(crate) struct TransportErrorCommandInput {
+    pub session_id: String,
+    /// Codex extension: expose the active turn id to internal turn-scoped hooks.
+    pub turn_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    pub transcript_path: NullableString,
+    pub cwd: String,
+    #[schemars(schema_with = "transport_error_hook_event_name_schema")]
+    pub hook_event_name: String,
+    pub model: String,
+    #[schemars(schema_with = "permission_mode_schema")]
+    pub permission_mode: String,
+    #[schemars(schema_with = "transport_error_transport_schema")]
+    pub transport: String,
+    #[schemars(schema_with = "transport_error_phase_schema")]
+    pub phase: String,
+    pub message: String,
+    pub retry_count: u64,
+    pub max_retries: u64,
+    pub http_status_code: Option<u16>,
+    pub details: String,
+}
+
 pub fn write_schema_fixtures(schema_root: &Path) -> anyhow::Result<()> {
     let generated_dir = schema_root.join(GENERATED_DIR);
     ensure_empty_dir(&generated_dir)?;
@@ -722,6 +764,14 @@ pub fn write_schema_fixtures(schema_root: &Path) -> anyhow::Result<()> {
     write_schema(
         &generated_dir.join(SUBAGENT_STOP_OUTPUT_FIXTURE),
         schema_json::<SubagentStopCommandOutputWire>()?,
+    )?;
+    write_schema(
+        &generated_dir.join(TRANSPORT_ERROR_INPUT_FIXTURE),
+        schema_json::<TransportErrorCommandInput>()?,
+    )?;
+    write_schema(
+        &generated_dir.join(TRANSPORT_ERROR_OUTPUT_FIXTURE),
+        schema_json::<TransportErrorCommandOutputWire>()?,
     )?;
     write_schema(
         &generated_dir.join(STOP_INPUT_FIXTURE),
@@ -838,6 +888,10 @@ fn subagent_stop_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_const_schema("SubagentStop")
 }
 
+fn transport_error_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_const_schema("TransportError")
+}
+
 fn stop_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_const_schema("Stop")
 }
@@ -862,6 +916,14 @@ fn session_start_source_schema(_gen: &mut SchemaGenerator) -> Schema {
 
 fn compaction_trigger_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_enum_schema(&["manual", "auto"])
+}
+
+fn transport_error_transport_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_enum_schema(&["responses_websocket", "responses_https"])
+}
+
+fn transport_error_phase_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_enum_schema(&["retry", "fallbackToHttp", "exhausted"])
 }
 
 fn string_const_schema(value: &str) -> Schema {
@@ -931,6 +993,9 @@ mod tests {
     use super::SubagentStartCommandInput;
     use super::SubagentStartCommandOutputWire;
     use super::SubagentStopCommandInput;
+    use super::TRANSPORT_ERROR_INPUT_FIXTURE;
+    use super::TRANSPORT_ERROR_OUTPUT_FIXTURE;
+    use super::TransportErrorCommandInput;
     use super::USER_PROMPT_SUBMIT_INPUT_FIXTURE;
     use super::USER_PROMPT_SUBMIT_OUTPUT_FIXTURE;
     use super::UserPromptSubmitCommandInput;
@@ -1006,6 +1071,12 @@ mod tests {
             SUBAGENT_STOP_OUTPUT_FIXTURE => {
                 include_str!("../schema/generated/subagent-stop.command.output.schema.json")
             }
+            TRANSPORT_ERROR_INPUT_FIXTURE => {
+                include_str!("../schema/generated/transport-error.command.input.schema.json")
+            }
+            TRANSPORT_ERROR_OUTPUT_FIXTURE => {
+                include_str!("../schema/generated/transport-error.command.output.schema.json")
+            }
             STOP_INPUT_FIXTURE => {
                 include_str!("../schema/generated/stop.command.input.schema.json")
             }
@@ -1067,6 +1138,8 @@ mod tests {
             SUBAGENT_START_OUTPUT_FIXTURE,
             SUBAGENT_STOP_INPUT_FIXTURE,
             SUBAGENT_STOP_OUTPUT_FIXTURE,
+            TRANSPORT_ERROR_INPUT_FIXTURE,
+            TRANSPORT_ERROR_OUTPUT_FIXTURE,
             STOP_INPUT_FIXTURE,
             STOP_OUTPUT_FIXTURE,
             INTERRUPT_INPUT_FIXTURE,
@@ -1149,6 +1222,11 @@ mod tests {
                 .expect("serialize subagent stop input schema"),
         )
         .expect("parse subagent stop input schema");
+        let transport_error: Value = serde_json::from_slice(
+            &schema_json::<TransportErrorCommandInput>()
+                .expect("serialize transport error input schema"),
+        )
+        .expect("parse transport error input schema");
         let stop: Value = serde_json::from_slice(
             &schema_json::<StopCommandInput>().expect("serialize stop input schema"),
         )
@@ -1167,6 +1245,7 @@ mod tests {
             &user_prompt_submit,
             &subagent_start,
             &subagent_stop,
+            &transport_error,
             &stop,
             &interrupt,
         ] {
@@ -1193,6 +1272,8 @@ mod tests {
             schema_json::<PostCompactCommandInput>().expect("serialize post compact input schema"),
             schema_json::<UserPromptSubmitCommandInput>()
                 .expect("serialize user prompt submit input schema"),
+            schema_json::<TransportErrorCommandInput>()
+                .expect("serialize transport error input schema"),
         ];
 
         for schema in schemas {

@@ -70,6 +70,7 @@ pub(crate) fn select_handlers_for_matcher_inputs(
             HookEventName::PreModelRequest
             | HookEventName::PostModelRequest
             | HookEventName::UserPromptSubmit
+            | HookEventName::TransportError
             | HookEventName::Stop
             | HookEventName::Interrupt => true,
         })
@@ -285,6 +286,7 @@ pub(crate) fn scope_for_event(event_name: HookEventName) -> HookScope {
         | HookEventName::PreCompact
         | HookEventName::PostCompact
         | HookEventName::UserPromptSubmit
+        | HookEventName::TransportError
         | HookEventName::SubagentStop
         | HookEventName::Stop
         | HookEventName::PreModelRequest
@@ -307,6 +309,7 @@ pub(crate) fn hook_event_name_label(event_name: HookEventName) -> &'static str {
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",
         HookEventName::SubagentStop => "SubagentStop",
+        HookEventName::TransportError => "TransportError",
         HookEventName::Stop => "Stop",
         HookEventName::Interrupt => "Interrupt",
     }

@@ -143,6 +143,7 @@ pub(crate) fn matcher_pattern_for_event(
         HookEventName::PreModelRequest
         | HookEventName::PostModelRequest
         | HookEventName::UserPromptSubmit
+        | HookEventName::TransportError
         | HookEventName::Stop
         | HookEventName::Interrupt => None,
     }

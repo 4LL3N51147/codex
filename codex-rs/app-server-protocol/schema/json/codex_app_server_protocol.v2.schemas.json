@@ -9841,6 +9841,7 @@
         "userPromptSubmit",
         "subagentStart",
         "subagentStop",
+        "transportError",
         "stop",
         "interrupt"
       ],
@@ -11164,6 +11165,12 @@
           },
           "type": "array"
         },
+        "TransportError": {
+          "items": {
+            "$ref": "#/definitions/ConfiguredHookMatcherGroup"
+          },
+          "type": "array"
+        },
         "UserPromptSubmit": {
           "items": {
             "$ref": "#/definitions/ConfiguredHookMatcherGroup"
@@ -11193,6 +11200,7 @@
         "Stop",
         "SubagentStart",
         "SubagentStop",
+        "TransportError",
         "UserPromptSubmit"
       ],
       "type": "object"

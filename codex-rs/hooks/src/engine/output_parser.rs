@@ -88,6 +88,7 @@ use crate::schema::SessionStartCommandOutputWire;
 use crate::schema::StopCommandOutputWire;
 use crate::schema::SubagentStartCommandOutputWire;
 use crate::schema::SubagentStopCommandOutputWire;
+use crate::schema::TransportErrorCommandOutputWire;
 use crate::schema::UserPromptSubmitCommandOutputWire;
 
 pub(crate) fn parse_session_start(stdout: &str) -> Option<SessionStartOutput> {
@@ -260,6 +261,15 @@ pub(crate) fn parse_interrupt(stdout: &str) -> Option<InterruptOutput> {
     let wire: InterruptCommandOutputWire = parse_json(stdout)?;
     Some(InterruptOutput {
         system_message: wire.system_message,
+    })
+}
+
+pub(crate) fn parse_transport_error(stdout: &str) -> Option<StatelessHookOutput> {
+    let wire: TransportErrorCommandOutputWire = parse_json(stdout)?;
+    let universal = UniversalOutput::from(wire.universal);
+    Some(StatelessHookOutput {
+        universal,
+        invalid_reason: None,
     })
 }
 

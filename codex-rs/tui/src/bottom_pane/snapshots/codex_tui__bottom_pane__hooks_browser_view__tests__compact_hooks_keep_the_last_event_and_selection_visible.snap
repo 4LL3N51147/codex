@@ -9,8 +9,8 @@ expression: text
 
   Event               Active/Installed
 ↑
-  SubagentStart       0/0
   SubagentStop        0/0
+  TransportError      0/0
   Stop                0/0
   Interrupt           0/0
   PreModelRequest     0/0

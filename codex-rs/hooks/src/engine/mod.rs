@@ -28,6 +28,8 @@ use crate::events::session_start::SessionStartOutcome;
 use crate::events::session_start::SessionStartRequest;
 use crate::events::stop::StopOutcome;
 use crate::events::stop::StopRequest;
+use crate::events::transport_error::TransportErrorOutcome;
+use crate::events::transport_error::TransportErrorRequest;
 use crate::events::user_prompt_submit::UserPromptSubmitOutcome;
 use crate::events::user_prompt_submit::UserPromptSubmitRequest;
 use crate::mcp::HookMcpExecutor;
@@ -231,6 +233,7 @@ impl ConfiguredHandler {
             codex_protocol::protocol::HookEventName::UserPromptSubmit => "user-prompt-submit",
             codex_protocol::protocol::HookEventName::SubagentStart => "subagent-start",
             codex_protocol::protocol::HookEventName::SubagentStop => "subagent-stop",
+            codex_protocol::protocol::HookEventName::TransportError => "transport-error",
             codex_protocol::protocol::HookEventName::Stop => "stop",
             codex_protocol::protocol::HookEventName::Interrupt => "interrupt",
         }
@@ -563,6 +566,20 @@ impl ClaudeHooksEngine {
 
     pub(crate) async fn run_interrupt(&self, request: InterruptRequest) -> InterruptOutcome {
         crate::events::interrupt::run(self, request).await
+    }
+
+    pub(crate) fn preview_transport_error(
+        &self,
+        request: &TransportErrorRequest,
+    ) -> Vec<HookRunSummary> {
+        crate::events::transport_error::preview(&self.handlers, request)
+    }
+
+    pub(crate) async fn run_transport_error(
+        &self,
+        request: TransportErrorRequest,
+    ) -> TransportErrorOutcome {
+        crate::events::transport_error::run(self, request).await
     }
 }
 
