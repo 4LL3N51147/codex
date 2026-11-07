@@ -882,6 +882,12 @@ pub struct Config {
     /// Whether to color status line items with colors from the active syntax theme.
     pub tui_status_line_use_colors: bool,
 
+    /// Lead time in minutes for the banked reset status warning (default: 1440).
+    pub tui_banked_reset_warning_minutes: Option<u64>,
+
+    /// Interval in seconds for periodic banked reset status checks (default: 60).
+    pub tui_banked_reset_check_interval_seconds: Option<std::num::NonZeroU32>,
+
     /// Ordered list of terminal title item identifiers for the TUI.
     ///
     /// When unset, the TUI defaults to: `activity` and `project`.
@@ -4905,6 +4911,8 @@ impl Config {
                 .as_ref()
                 .map(|t| t.status_line_use_colors)
                 .unwrap_or(true),
+            tui_banked_reset_warning_minutes: cfg.tui.as_ref().and_then(|t| t.banked_reset_warning_minutes),
+            tui_banked_reset_check_interval_seconds: cfg.tui.as_ref().and_then(|t| t.banked_reset_check_interval_seconds),
             tui_terminal_title: cfg.tui.as_ref().and_then(|t| t.terminal_title.clone()),
             tui_theme: cfg.tui.as_ref().and_then(|t| t.theme.clone()),
             tui_pet: cfg.tui.as_ref().and_then(|t| t.pet.clone()),

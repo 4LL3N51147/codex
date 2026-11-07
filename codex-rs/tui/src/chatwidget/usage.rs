@@ -14,6 +14,13 @@ const RATE_LIMIT_RESET_VIEW_ID: &str = "rate-limit-reset";
 const RATE_LIMIT_RESET_CONFIRMATION_VIEW_ID: &str = "rate-limit-reset-confirmation";
 
 impl ChatWidget {
+    fn update_rate_limit_reset_credits(&mut self, summary: Option<RateLimitResetCreditsSummary>) {
+        self.available_rate_limit_reset_credits =
+            summary.as_ref().map(|summary| summary.available_count);
+        self.rate_limit_reset_credits_summary = summary;
+        self.refresh_status_line();
+    }
+
     pub(super) fn open_usage_menu(&mut self) {
         self.clear_pending_rate_limit_reset_hint();
         let should_refresh_reset_availability = self.available_rate_limit_reset_credits == Some(0);
@@ -84,7 +91,7 @@ impl ChatWidget {
             self.on_rate_limit_snapshot(Some(snapshot));
         }
         if let Ok(response) = result {
-            self.available_rate_limit_reset_credits = Some(response.available_count);
+            self.update_rate_limit_reset_credits(Some(response));
         }
         let params = self.usage_menu_params();
         if self
@@ -142,7 +149,7 @@ impl ChatWidget {
                         "You don't have any usage limit resets available.",
                     )
                 };
-                self.available_rate_limit_reset_credits = Some(available_count);
+                self.update_rate_limit_reset_credits(Some(response));
                 params
             }
             Err(_) => {
@@ -370,7 +377,7 @@ impl ChatWidget {
                         | ConsumeAccountRateLimitResetCreditOutcome::AlreadyRedeemed
                 ) =>
             {
-                self.available_rate_limit_reset_credits = None;
+                self.update_rate_limit_reset_credits(None);
                 self.replace_rate_limit_reset_popup(Self::rate_limit_reset_success_loading_params());
                 true
             }
@@ -381,14 +388,17 @@ impl ChatWidget {
                         "Your usage does not need a reset right now."
                     }
                     ConsumeAccountRateLimitResetCreditOutcome::NoCredit if credit_id.is_some() => {
-                        self.available_rate_limit_reset_credits = None;
+                        self.update_rate_limit_reset_credits(None);
                         self.replace_rate_limit_reset_popup(Self::reset_refresh_params(
                             "That reset is no longer available. Refresh to see your current resets.",
                         ));
                         return false;
                     }
                     ConsumeAccountRateLimitResetCreditOutcome::NoCredit => {
-                        self.available_rate_limit_reset_credits = Some(0);
+                        self.update_rate_limit_reset_credits(Some(RateLimitResetCreditsSummary {
+                            available_count: 0,
+                            credits: None,
+                        }));
                         "No usage limit resets are available."
                     }
                     ConsumeAccountRateLimitResetCreditOutcome::Reset
@@ -446,7 +456,7 @@ impl ChatWidget {
         let message = match result {
             Ok(response) => {
                 let available_count = response.available_count;
-                self.available_rate_limit_reset_credits = Some(available_count);
+                self.update_rate_limit_reset_credits(Some(response));
                 format!(
                     "Usage reset. You have {available_count} {} left.",
                     reset_label(available_count)
@@ -507,7 +517,7 @@ impl ChatWidget {
         }
         if let Ok(response) = result {
             let available_count = response.available_count;
-            self.available_rate_limit_reset_credits = Some(available_count);
+            self.update_rate_limit_reset_credits(Some(response));
             self.set_rate_limit_reset_available_hint(available_count);
         }
         true
@@ -518,7 +528,7 @@ impl ChatWidget {
         self.pending_rate_limit_reset_idempotency_key = None;
         self.rate_limit_reset_picker_request_id = None;
         self.pending_usage_menu_rate_limit_request_id = None;
-        self.available_rate_limit_reset_credits = None;
+        self.update_rate_limit_reset_credits(None);
         self.rate_limit_snapshots_by_limit_id.clear();
         self.clear_pending_rate_limit_reset_hint();
         self.bottom_pane.dismiss_view_by_id(USAGE_MENU_VIEW_ID);

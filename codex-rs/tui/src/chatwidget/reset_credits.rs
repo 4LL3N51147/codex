@@ -77,3 +77,43 @@ pub(super) fn reset_credit_options(
 
     options
 }
+
+/// Earliest usable expiry; missing dates and stale credits cannot trigger a warning.
+pub(super) fn next_banked_reset_expiry(
+    summary: &RateLimitResetCreditsSummary,
+    now: i64,
+) -> Option<i64> {
+    if summary.available_count <= 0 {
+        return None;
+    }
+    summary
+        .credits
+        .as_deref()?
+        .iter()
+        .filter(|credit| credit.status == RateLimitResetCreditStatus::Available)
+        .filter_map(|credit| credit.expires_at)
+        .filter(|expires_at| *expires_at > now)
+        .min()
+}
+
+/// Only show the warning when a reset is inside the configured expiry window.
+pub(super) fn banked_reset_status(
+    summary: &RateLimitResetCreditsSummary,
+    now: i64,
+    warning_minutes: u64,
+) -> Option<String> {
+    let expires_at = next_banked_reset_expiry(summary, now)?;
+    let seconds = expires_at.saturating_sub(now);
+    if warning_minutes == 0 || seconds as u64 > warning_minutes.saturating_mul(60) {
+        return None;
+    }
+    // Round up so a usable reset never appears to have zero time remaining.
+    let remaining = if seconds >= 86_400 {
+        format!("{}d", (seconds - 1) / 86_400 + 1)
+    } else if seconds >= 3_600 {
+        format!("{}h", (seconds - 1) / 3_600 + 1)
+    } else {
+        format!("{}m", (seconds - 1) / 60 + 1)
+    };
+    Some(format!("Banked reset expires in {remaining} · /usage"))
+}

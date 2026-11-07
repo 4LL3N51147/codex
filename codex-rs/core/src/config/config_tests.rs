@@ -1412,6 +1412,8 @@ fn config_toml_deserializes_model_availability_nux() {
             alternate_screen: AltScreenMode::default(),
             status_line: None,
             status_line_use_colors: true,
+            banked_reset_warning_minutes: None,
+            banked_reset_check_interval_seconds: None,
             terminal_title: None,
             theme: None,
             pet: None,
@@ -4780,6 +4782,8 @@ fn tui_config_missing_notifications_field_defaults_to_enabled() {
             alternate_screen: AltScreenMode::Auto,
             status_line: None,
             status_line_use_colors: true,
+            banked_reset_warning_minutes: None,
+            banked_reset_check_interval_seconds: None,
             terminal_title: None,
             theme: None,
             pet: None,
@@ -14319,4 +14323,44 @@ fn sqlite_home_env_conflict_reports_an_override() -> std::io::Result<()> {
     assert!(warnings.is_empty());
 
     Ok(())
+}
+
+#[test]
+fn config_toml_deserializes_banked_reset_warning_minutes() {
+    for (value, expected) in [
+        ("", None),
+        ("banked_reset_warning_minutes = 360", Some(360)),
+        ("banked_reset_warning_minutes = 0", Some(0)),
+    ] {
+        let config: ConfigToml = toml::from_str(&format!("[tui]\n{value}\n")).unwrap();
+        assert_eq!(config.tui.unwrap().banked_reset_warning_minutes, expected);
+    }
+    assert!(toml::from_str::<ConfigToml>("[tui]\nbanked_reset_warning_minutes = -1").is_err());
+}
+
+#[test]
+fn config_toml_deserializes_banked_reset_check_interval_seconds() {
+    for (value, expected) in [
+        ("", None),
+        ("banked_reset_check_interval_seconds = 1", Some(1)),
+        ("banked_reset_check_interval_seconds = 300", Some(300)),
+    ] {
+        let config: ConfigToml = toml::from_str(&format!("[tui]\n{value}\n")).unwrap();
+        assert_eq!(
+            config
+                .tui
+                .unwrap()
+                .banked_reset_check_interval_seconds
+                .map(|seconds| seconds.get()),
+            expected
+        );
+    }
+    for value in ["0", "-1", "1.5", "4294967296"] {
+        assert!(
+            toml::from_str::<ConfigToml>(&format!(
+                "[tui]\nbanked_reset_check_interval_seconds = {value}"
+            ))
+            .is_err()
+        );
+    }
 }

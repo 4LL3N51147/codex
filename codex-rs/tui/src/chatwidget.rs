@@ -586,6 +586,8 @@ pub(crate) struct ChatWidget {
     pending_usage_menu_rate_limit_request_id: Option<u64>,
     pending_rate_limit_reset_hint: Option<PlainHistoryCell>,
     available_rate_limit_reset_credits: Option<i64>,
+    rate_limit_reset_credits_summary:
+        Option<codex_app_server_protocol::RateLimitResetCreditsSummary>,
     next_rate_limit_reset_request_id: u64,
     plan_type: Option<PlanType>,
     codex_rate_limit_reached_type: Option<RateLimitReachedType>,
@@ -1215,6 +1217,7 @@ impl ChatWidget {
         {
             self.refresh_terminal_title();
         }
+        self.refresh_banked_reset_status_line();
         self.refresh_status_line_if_workspace_headline_due();
         self.refresh_thread_usage_if_settlement_due();
         self.refresh_terminal_program_status();

@@ -1125,3 +1125,235 @@ fn show_usage_test_overlay(chat: &mut ChatWidget) {
         ..Default::default()
     });
 }
+
+#[test]
+fn banked_reset_status_uses_earliest_available_future_expiry() {
+    let now = 1_800_000_000;
+    let mut redeemed = reset_credit("redeemed", Some(now + 10));
+    redeemed.status = RateLimitResetCreditStatus::Redeemed;
+    let summary = detailed_reset_credits(
+        3,
+        vec![
+            reset_credit("later", Some(now + 3 * 86_400)),
+            reset_credit("expired", Some(now)),
+            reset_credit("no-expiry", None),
+            redeemed,
+            reset_credit("soon", Some(now + 7_200)),
+        ],
+    );
+    assert_eq!(
+        super::super::reset_credits::banked_reset_status(&summary, now, 1440),
+        Some("Banked reset expires in 2h · /usage".to_string())
+    );
+}
+
+#[test]
+fn banked_reset_status_handles_warning_boundary_and_expiration() {
+    let now = 1_800_000_000;
+    let summary = detailed_reset_credits(1, vec![reset_credit("reset", Some(now + 86_401))]);
+    for (elapsed, expected) in [
+        (0, None),
+        (1, Some("Banked reset expires in 1d · /usage")),
+        (86_340, Some("Banked reset expires in 2m · /usage")),
+        (86_400, Some("Banked reset expires in 1m · /usage")),
+        (86_401, None),
+    ] {
+        assert_eq!(
+            super::super::reset_credits::banked_reset_status(&summary, now + elapsed, 1440),
+            expected.map(str::to_owned)
+        );
+    }
+    for summary in [
+        reset_credits(1),
+        detailed_reset_credits(0, vec![reset_credit("stale", Some(now + 60))]),
+        detailed_reset_credits(1, vec![reset_credit("unlimited", None)]),
+    ] {
+        assert_eq!(
+            super::super::reset_credits::banked_reset_status(&summary, now, 1440),
+            None
+        );
+    }
+}
+
+#[tokio::test]
+async fn banked_reset_status_tracks_startup_refresh_and_account_clear() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    set_chatgpt_auth(&mut chat);
+    chat.local_settings.tui.status_line = Some(vec!["banked-reset".to_string()]);
+    let request_id = chat.start_rate_limit_reset_startup_check();
+    assert!(chat.finish_rate_limit_reset_hint_refresh(
+        request_id,
+        vec![],
+        Ok(detailed_reset_credits(
+            1,
+            vec![reset_credit(
+                "soon",
+                Some(chrono::Utc::now().timestamp() + 7_200),
+            )]
+        )),
+    ));
+    assert!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset)
+            .is_some_and(|value| value.starts_with("Banked reset expires in"))
+    );
+    chat.clear_pending_rate_limit_reset_requests();
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+}
+
+#[tokio::test]
+async fn banked_reset_status_clears_on_redemption_and_updates_remaining_expiry() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    set_chatgpt_auth(&mut chat);
+    chat.local_settings.tui.status_line = Some(vec!["banked-reset".to_string()]);
+    let request_id = chat.show_rate_limit_reset_loading_popup();
+    chat.finish_rate_limit_reset_credits_refresh(
+        request_id,
+        vec![],
+        Ok(detailed_reset_credits(
+            1,
+            vec![reset_credit(
+                "soon",
+                Some(chrono::Utc::now().timestamp() + 7_200),
+            )],
+        )),
+    );
+    assert!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset)
+            .is_some()
+    );
+    let request_id = chat.show_rate_limit_reset_consuming_popup();
+    assert!(finish_reset_consume_outcome(
+        &mut chat,
+        request_id,
+        "test-redemption",
+        ConsumeAccountRateLimitResetCreditOutcome::Reset,
+    ));
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+    assert!(chat.finish_post_consume_reset_credits_refresh(
+        request_id,
+        vec![],
+        Ok(detailed_reset_credits(
+            1,
+            vec![reset_credit(
+                "later",
+                Some(chrono::Utc::now().timestamp() + 3 * 86_400),
+            )]
+        )),
+    ));
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+}
+
+#[test]
+fn banked_reset_status_respects_custom_warning_window_and_disable() {
+    let now = 1_800_000_000;
+    let summary = detailed_reset_credits(1, vec![reset_credit("reset", Some(now + 7_200))]);
+    for (minutes, expected) in [
+        (0, None),
+        (119, None),
+        (120, Some("Banked reset expires in 2h · /usage")),
+        (360, Some("Banked reset expires in 2h · /usage")),
+        (u64::MAX, Some("Banked reset expires in 2h · /usage")),
+    ] {
+        assert_eq!(
+            super::super::reset_credits::banked_reset_status(&summary, now, minutes),
+            expected.map(str::to_owned),
+        );
+    }
+}
+
+#[tokio::test]
+async fn banked_reset_status_uses_configured_window_and_enters_it_on_tick() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    set_chatgpt_auth(&mut chat);
+    chat.local_settings.tui.status_line = Some(vec!["banked-reset".to_string()]);
+    chat.local_settings.tui.banked_reset_warning_minutes = Some(60);
+    let request_id = chat.start_rate_limit_reset_startup_check();
+    chat.finish_rate_limit_reset_hint_refresh(
+        request_id,
+        vec![],
+        Ok(detailed_reset_credits(
+            1,
+            vec![reset_credit(
+                "reset",
+                Some(chrono::Utc::now().timestamp() + 7_200),
+            )],
+        )),
+    );
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+    // Model the passage of time without waiting: the stored reset now expires within an hour.
+    chat.rate_limit_reset_credits_summary
+        .as_mut()
+        .unwrap()
+        .credits
+        .as_mut()
+        .unwrap()[0]
+        .expires_at = Some(chrono::Utc::now().timestamp() + 1_800);
+    chat.pre_draw_tick();
+    assert!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset)
+            .is_some_and(|value| value.starts_with("Banked reset expires in"))
+    );
+    chat.local_settings.tui.banked_reset_warning_minutes = Some(0);
+    chat.pre_draw_tick();
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+}
+
+#[tokio::test]
+async fn banked_reset_hidden_status_schedules_configured_check_interval() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    set_chatgpt_auth(&mut chat);
+    chat.local_settings.tui.status_line = Some(vec!["banked-reset".to_string()]);
+    chat.local_settings.tui.banked_reset_warning_minutes = Some(60);
+    chat.local_settings.tui.banked_reset_check_interval_seconds = std::num::NonZeroU32::new(300);
+    let request_id = chat.start_rate_limit_reset_startup_check();
+    chat.finish_rate_limit_reset_hint_refresh(
+        request_id,
+        vec![],
+        Ok(detailed_reset_credits(
+            1,
+            vec![reset_credit(
+                "reset",
+                Some(chrono::Utc::now().timestamp() + 7_200),
+            )],
+        )),
+    );
+    assert_eq!(
+        chat.status_line_value_for_item(StatusLineItem::BankedReset),
+        None
+    );
+
+    // Replace the dummy requester after setup so only the periodic check is observed.
+    tokio::time::pause();
+    let (draw_tx, mut draw_rx) = tokio::sync::broadcast::channel(16);
+    chat.frame_requester = FrameRequester::new(draw_tx);
+    chat.refresh_status_line();
+    tokio::task::yield_now().await;
+    tokio::time::advance(Duration::from_secs(61)).await;
+    tokio::task::yield_now().await;
+    assert!(matches!(
+        draw_rx.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+    tokio::time::advance(Duration::from_secs(240)).await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), draw_rx.recv())
+            .await
+            .unwrap()
+            .is_ok()
+    );
+}

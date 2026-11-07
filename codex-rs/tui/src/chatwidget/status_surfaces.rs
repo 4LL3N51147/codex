@@ -223,6 +223,28 @@ impl ChatWidget {
             self.status_line_pull_request_url(),
         );
         self.set_status_line(line.map(Into::into));
+        if selections
+            .status_line_items
+            .contains(&StatusLineItem::BankedReset)
+            && self.local_settings.tui.banked_reset_warning_minutes != Some(0)
+            && self
+                .rate_limit_reset_credits_summary
+                .as_ref()
+                .is_some_and(|summary| {
+                    super::reset_credits::next_banked_reset_expiry(
+                        summary,
+                        chrono::Utc::now().timestamp(),
+                    )
+                    .is_some()
+                })
+        {
+            self.frame_requester.schedule_frame_in(Duration::from_secs(
+                self.local_settings
+                    .tui
+                    .banked_reset_check_interval_seconds
+                    .map_or(60, |seconds| u64::from(seconds.get())),
+            ));
+        }
     }
 
     /// Clears the terminal title Codex most recently wrote, if any.
@@ -668,6 +690,17 @@ impl ChatWidget {
             })
     }
 
+    pub(super) fn refresh_banked_reset_status_line(&mut self) {
+        if self.rate_limit_reset_credits_summary.is_some()
+            && self
+                .configured_status_line_items()
+                .iter()
+                .any(|item| item.parse::<StatusLineItem>() == Ok(StatusLineItem::BankedReset))
+        {
+            self.refresh_status_line();
+        }
+    }
+
     pub(super) fn refresh_status_line_if_workspace_headline_due(&mut self) {
         let now = Instant::now();
         if self.status_line_workspace_headline_should_fetch(now)
@@ -779,6 +812,20 @@ impl ChatWidget {
             StatusLineItem::ContextUsed => self
                 .status_line_context_used_percent()
                 .map(|used| format!("Context {used}% used")),
+            StatusLineItem::BankedReset => {
+                self.rate_limit_reset_credits_summary
+                    .as_ref()
+                    .and_then(|summary| {
+                        super::reset_credits::banked_reset_status(
+                            summary,
+                            chrono::Utc::now().timestamp(),
+                            self.local_settings
+                                .tui
+                                .banked_reset_warning_minutes
+                                .unwrap_or(1440),
+                        )
+                    })
+            }
             StatusLineItem::FiveHourLimit => {
                 let (window, is_secondary) = self
                     .rate_limit_snapshots_by_limit_id
@@ -877,6 +924,7 @@ impl ChatWidget {
             StatusSurfacePreviewItem::ContextUsed => StatusLineItem::ContextUsed,
             StatusSurfacePreviewItem::FiveHourLimit => StatusLineItem::FiveHourLimit,
             StatusSurfacePreviewItem::WeeklyLimit => StatusLineItem::WeeklyLimit,
+            StatusSurfacePreviewItem::BankedReset => StatusLineItem::BankedReset,
             StatusSurfacePreviewItem::CodexVersion => StatusLineItem::CodexVersion,
             StatusSurfacePreviewItem::ContextWindowSize => StatusLineItem::ContextWindowSize,
             StatusSurfacePreviewItem::UsedTokens => StatusLineItem::UsedTokens,

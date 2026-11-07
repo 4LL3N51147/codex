@@ -988,6 +988,16 @@ pub struct Tui {
     #[serde(default = "default_true")]
     pub status_line_use_colors: bool,
 
+    /// Show the banked-reset status item only within this many minutes of expiry.
+    /// Defaults to 1440 (24 hours). Set to 0 to disable the warning.
+    #[serde(default)]
+    pub banked_reset_warning_minutes: Option<u64>,
+
+    /// Interval in seconds between periodic banked reset status checks.
+    /// Defaults to 60. Must be greater than zero; this does not poll the account API.
+    #[serde(default)]
+    pub banked_reset_check_interval_seconds: Option<std::num::NonZeroU32>,
+
     /// Ordered list of terminal title item identifiers.
     ///
     /// When set, the TUI renders the selected items into the terminal window/tab title.
